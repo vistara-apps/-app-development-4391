@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: hsl(210, 30%, 25%);
+  }
+  
+  html {
+    color-scheme: dark;
+  }
+  
+  body {
+    background: hsl(210, 30%, 10%);
+    color: hsl(210, 30%, 90%);
+  }
+}
+
+@layer components {
+  .gradient-bg {
+    background: linear-gradient(135deg, hsl(250, 60%, 20%) 0%, hsl(210, 80%, 15%) 50%, hsl(280, 40%, 20%) 100%);
+  }
+  
+  .card-bg {
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
