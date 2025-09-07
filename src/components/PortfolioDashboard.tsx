@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Percent } from 'lucide-react';
 import PortfolioChart from './PortfolioChart';
+import LoadingSpinner from './ui/LoadingSpinner';
+import ErrorMessage from './ui/ErrorMessage';
 import { usePaymentContext } from '../hooks/usePaymentContext';
-
-const mockPortfolioData = [
-  { symbol: 'PEPE', name: 'Pepe', balance: 1000000, price: 0.000001234, change24h: 15.2, value: 1234 },
-  { symbol: 'DOGE', name: 'Dogecoin', balance: 5000, price: 0.08, change24h: -3.1, value: 400 },
-  { symbol: 'SHIB', name: 'Shiba Inu', balance: 50000000, price: 0.000008, change24h: 8.7, value: 400 },
-  { symbol: 'FLOKI', name: 'Floki Inu', balance: 100000, price: 0.00003, change24h: 22.1, value: 3000 },
-];
+import { usePortfolio } from '../hooks/usePortfolio';
 
 const PortfolioDashboard: React.FC = () => {
   const [showPremium, setShowPremium] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
   const { createSession } = usePaymentContext();
-
-  const totalValue = mockPortfolioData.reduce((sum, token) => sum + token.value, 0);
-  const totalChange = mockPortfolioData.reduce((sum, token) => sum + (token.value * token.change24h / 100), 0);
-  const totalChangePercent = (totalChange / totalValue) * 100;
+  const { 
+    portfolio, 
+    loading, 
+    error, 
+    totalValue, 
+    totalChange24h, 
+    totalChangePercent24h, 
+    refetch 
+  } = usePortfolio();
 
   const handleUnlockPremium = async () => {
     try {
@@ -28,6 +29,21 @@ const PortfolioDashboard: React.FC = () => {
       console.error('Payment failed:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <LoadingSpinner size="lg" />
+          <p className="text-gray-400">Loading your portfolio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ErrorMessage message={error} onRetry={refetch} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -47,11 +63,11 @@ const PortfolioDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">24h Change</p>
-              <p className={`text-2xl font-bold ${totalChangePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {totalChangePercent >= 0 ? '+' : ''}{totalChangePercent.toFixed(2)}%
+              <p className={`text-2xl font-bold ${totalChangePercent24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {totalChangePercent24h >= 0 ? '+' : ''}{totalChangePercent24h.toFixed(2)}%
               </p>
             </div>
-            {totalChangePercent >= 0 ? 
+            {totalChangePercent24h >= 0 ? 
               <TrendingUp className="w-8 h-8 text-green-400" /> : 
               <TrendingDown className="w-8 h-8 text-red-400" />
             }
@@ -62,8 +78,8 @@ const PortfolioDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">P&L (24h)</p>
-              <p className={`text-2xl font-bold ${totalChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {totalChange >= 0 ? '+' : ''}${totalChange.toFixed(2)}
+              <p className={`text-2xl font-bold ${totalChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {totalChange24h >= 0 ? '+' : ''}${totalChange24h.toFixed(2)}
               </p>
             </div>
             <Percent className="w-8 h-8 text-primary" />
@@ -103,33 +119,40 @@ const PortfolioDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {mockPortfolioData.map((token) => (
-                <tr key={token.symbol} className="border-b border-white/5 hover:bg-white/5">
+              {portfolio.map((entry) => (
+                <tr key={entry.entryId} className="border-b border-white/5 hover:bg-white/5">
                   <td className="py-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-bold text-white">{token.symbol[0]}</span>
+                        <span className="text-xs font-bold text-white">{entry.tokenSymbol[0]}</span>
                       </div>
                       <div>
-                        <p className="text-white font-medium">{token.symbol}</p>
-                        <p className="text-gray-400 text-sm">{token.name}</p>
+                        <p className="text-white font-medium">{entry.tokenSymbol}</p>
+                        <p className="text-gray-400 text-sm">Token</p>
                       </div>
                     </div>
                   </td>
                   <td className="text-right py-4 text-gray-300">
-                    {token.balance.toLocaleString()}
+                    {entry.quantity.toLocaleString()}
                   </td>
                   <td className="text-right py-4 text-gray-300">
-                    ${token.price}
+                    ${entry.currentPrice.toFixed(6)}
                   </td>
-                  <td className={`text-right py-4 ${token.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {token.change24h >= 0 ? '+' : ''}{token.change24h}%
+                  <td className={`text-right py-4 ${entry.changePercent24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {entry.changePercent24h >= 0 ? '+' : ''}{entry.changePercent24h.toFixed(2)}%
                   </td>
                   <td className="text-right py-4 text-white font-medium">
-                    ${token.value.toLocaleString()}
+                    ${entry.value.toLocaleString()}
                   </td>
                 </tr>
               ))}
+              {portfolio.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                    No tokens found in your portfolio
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
